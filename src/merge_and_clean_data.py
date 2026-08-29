@@ -1,6 +1,6 @@
 import pandas as pd
 import numpy as np
-from src.paths import *
+from paths import *
 
 # Define a dictionary
 # fire me for these naming conventions
@@ -16,6 +16,7 @@ datasets = {
 # Read source files
 ds_df = {}
 
+
 for key, filename in datasets.items():
     temp = pd.read_csv(OUTPUT_PATH / filename, index_col=0)
     temp['source_dataset'] = key
@@ -25,8 +26,10 @@ for key, filename in datasets.items():
 # Drop the fork length
 ds_df['oc3_25'] = ds_df['oc3_25'].drop(columns='Fork length (cm)')  
 
+
 # Combine datasets
 df = pd.concat([ds_df['oc1'], ds_df['oc2'], ds_df['oc3'], ds_df['oc3_25'], ds_df['oc3_5'], ds_df['oc4']], ignore_index=True)
+
 
 # Delete unnecessary columns
 df = df.drop(columns=[
@@ -39,6 +42,7 @@ df = df.drop(columns=[
     'Latitude', # Location not required. We already have bodies of water.
     'Longitude'
 ])
+
 
 # Rename columns
 df = df.rename(columns={
@@ -69,9 +73,11 @@ df = df.rename(columns={
     'Method_Code': 'method_code'
 })
 
+
 # Convert date to datetime
 df['date'] = pd.to_datetime(df['date'], errors='coerce')
 df['year'] = df['date'].dt.year
+
 
 # Determine surrogacy
 df['is_surrogate'] = (
@@ -79,20 +85,25 @@ df['is_surrogate'] = (
     df['p_name'].str.contains('surrogate', case=False, na=False)
 )
 
+
 # Standardize units
 df['unit_clean'] = df['unit'].str.strip().str.upper() # Strip capitalization, and convert to all caps
 
+
 # Convert comparable units (1 ug/g -> 1000 ng/g, 1 pg/g -> 0.001 ng/g)
 df['conc_ng_g'] = np.nan
+
 
 # Explicit wet-weight measurements
 df.loc[df['unit_clean'] == 'NG/G WET', 'conc_ng_g'] = df['concentration'] # Default measurement
 df.loc[df['unit_clean'] == 'UG/G WET', 'conc_ng_g'] = df['concentration'] * 1000 # For rows in unit_clean == UG/G WET, measure concentration * 1000 into conc_ng_g
 
+
 # Units where wet/dry basis is unspecified
 df.loc[df['unit_clean'] == 'NG/G', 'conc_ng_g'] = df['concentration'] # Default measurement
 df.loc[df['unit_clean'] == 'UG/G', 'conc_ng_g'] = df['concentration'] * 1000 # For rows in unit_clean == UG/G, put the concentration * 1000 into conc_ng_g
 df.loc[df['unit_clean'] == 'PG/G', 'conc_ng_g'] = df['concentration'] * 0.001 # For rows in unit_clean == PG/G, put the concentration / 1000 into conc_ng_g
+
 
 # Create a basis
 df['basis'] = 'unspecified'
@@ -108,10 +119,12 @@ df['toxin_clean'] = df['p_name'].replace({
     'ppDDT': "p-p'-DDT"
 })
 
+
 # Standardize p_flag
 df["p_flag"] = df["p_flag"].astype("string").str.strip().str.upper()
 
-################### OUTPUT SECTION ###################
+
+
 final_cols = [
     # date
     'date',
@@ -161,12 +174,6 @@ df = df[final_cols]
 # Sort by date and fish ID
 df = df.sort_values(by=['date', 'fish_id', 'p_code', 'rep_no'])
 
-# Save cleaned dataframe to CSV
-# cleaned = {
-#     'master_dataset.csv' : df,
-# }
-
-# for filename, dataframe in cleaned.items():
-#     dataframe.to_csv(CLEANED_PATH / filename, index=False) 
-
 df.to_csv(CLEANED_PATH / 'master_data.csv', index=False)
+
+print('Finished cleaning to master_data.csv...')
